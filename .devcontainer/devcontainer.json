@@ -1,0 +1,70 @@
+{
+    "name": "intelowl-dev",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "uwsgi",
+    "workspaceFolder": "/opt/deploy/intel_owl",
+    "shutdownAction": "stopCompose",
+    "remoteEnv": {
+        "DEBUG": "True",
+        "DJANGO_TEST_SERVER": "True",
+        "ELASTIC_ENDPOINT": "http://elasticsearch:9200",
+        "ELASTICSEARCH_PORT": "9200"
+    },
+    "mounts": [
+        "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+        // "source=/tmp/cowrie_logs/,target=/tmp/cowrie_logs/,type=bind"
+    ],
+    "postCreateCommand": "python manage.py makemigrations durin && python manage.py migrate",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.debugpy",
+                "ms-python.black-formatter",
+                "ms-python.isort",
+                "ms-python.flake8",
+                "ms-azuretools.vscode-docker",
+                "sst-dev.opencode",
+                "batisteo.vscode-django",
+                "ms-vscode.vscode-json",
+                "eamodio.gitlens",
+                "rid9.datetime"
+            ],
+            "settings": {
+                "python.defaultInterpreterPath": "/usr/local/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.flake8Enabled": true,
+                "python.formatting.provider": "black",
+                "python.sortImports.args": ["--profile", "black"],
+                "files.exclude": {
+                    "**/__pycache__": true,
+                    "**/*.pyc": true
+                }
+            }
+        }
+    },
+    "forwardPorts": [8000, 8001, 5678, 5679, 9200],
+    "portsAttributes": {
+        "8001": {
+            "label": "Django",
+            "onAutoForward": "notify"
+        },
+        "5432": {
+            "label": "PostGreSQL",
+            "onAutoForward": "notify"
+        },
+        "5678": {
+            "label": "Python Debugger",
+            "onAutoForward": "notify"
+        },
+        "5679": {
+            "label": "Celery Debugger",
+            "onAutoForward": "notify"
+        },
+        "9200": {
+            "label": "Elasticsearch",
+            "onAutoForward": "notify"
+        }
+    },
+    "remoteUser": "root"
+}
