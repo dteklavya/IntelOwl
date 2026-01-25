@@ -1,14 +1,19 @@
 # Use production image as base to avoid duplication
-FROM intelowlproject/intelowl:prod
+ARG REACT_APP_INTELOWL_VERSION=v6.4.0
+FROM intelowlproject/intelowl:${REACT_APP_INTELOWL_VERSION}
 
 # Switch to root to install development tools
 USER root
 
-# Install git + essentials (Alpine = apk)
-RUN apk add --no-cache \
-    git curl wget ca-certificates docker-cli && \
+# Install git + essentials
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    # FIXME: install docker-buildx-plugin
+    git curl wget gnupg ca-certificates && \
     curl -fsSL https://opencode.ai/install | bash && \
-    rm -rf /var/cache/apk/*
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /var/tmp/*
+
 
 
 # Install debugpy for development debugging

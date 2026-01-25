@@ -4,49 +4,26 @@ services:
   # Override postgres with dev-specific settings
   postgres:
     extends:
-      file: ../docker/default.yml
+      file: ../docker/postgres.override.yml
       service: postgres
     container_name: intelowl_postgres_dev
-    environment:
-      POSTGRES_DB: intelowl
-      POSTGRES_USER: intelowl
-      POSTGRES_PASSWORD: intelowl
     ports:
       - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
     networks:
       - intelowl-dev
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U intelowl"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
-  # Override rabbitmq with dev-specific settings
-  rabbitmq:
+  # Override redis with dev-specific settings
+  redis:
     extends:
-      file: ../docker/default.yml
-      service: rabbitmq
-    container_name: intelowl_rabbitmq_dev
+      file: ../docker/redis.override.yml
+      service: redis
+    container_name: intelowl_redis_dev
     ports:
-      - "5672:5672"
-      - "15672:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: guest
-      RABBITMQ_DEFAULT_PASS: guest
-    volumes:
-      - ../configuration/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - "6379:6379"
     networks:
       - intelowl-dev
-    healthcheck:
-      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
-      interval: 30s
-      timeout: 30s
-      retries: 5
 
-
-  # Elasticsearch for development
+  # Elasticsearch for development (keep as is)
   elasticsearch:
     image: eklavvya/elasticsearch-light-testing:latest
     container_name: elasticsearch
@@ -71,13 +48,15 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ../configuration/nginx/http.conf:/etc/nginx/conf.d/default.conf
+      - ../configuration/nginx/websocket.conf:/etc/nginx/websocket.conf
       - ../configuration/nginx/errors.conf:/etc/nginx/errors.conf
+      - ../configuration/nginx/http.conf:/etc/nginx/conf.d/default.conf
       - ../configuration/nginx/locations.conf:/etc/nginx/locations.conf
       - nginx_logs:/var/log/nginx
       - static_content:/var/www/static
     depends_on:
       - uwsgi
+      - daphne
     networks:
       - intelowl-dev
 
@@ -86,32 +65,36 @@ services:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+      args:
+        REACT_APP_INTELOWL_VERSION: v6.4.0
     container_name: intelowl_uwsgi_dev
-
     volumes:
-      - ..:/opt/deploy/intelowl:cached
+      - ..:/opt/deploy/intel_owl:cached
+      - generic_logs:/var/log/intel_owl
+      - shared_files:/opt/deploy/files_required
+      - static_content:/opt/deploy/intel_owl/static
     healthcheck:
       disable: true
     environment:
       - DEBUG=True
       - DJANGO_TEST_SERVER=True
+      - DJANGO_SECRET=ux)c0i8jp+nu(34c%y0q)rpv+-a%*hkrstmeg==xhe7v)fhe
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=intelowl
-      - DB_USER=intelowl
-      - DB_PASSWORD=intelowl
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTIC_ENDPOINT=http://elasticsearch:9200
-      - ELASTICSEARCH_PORT=9200
+      - DB_NAME=intel_owl_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - BROKER_URL=redis://redis:6379/1
+      - WEBSOCKETS_URL=redis://redis:6379/0
+      - ELASTICSEARCH_DSL_ENABLED=False
+      - ELASTICSEARCH_BI_ENABLED=False
     ports:
       - "8001:8001"
       - "5678:5678"
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
+      redis:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
@@ -122,38 +105,77 @@ services:
       - -c
       - |
         # Terminal multiplex: Django foreground + tail logs in background
-        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intelowl/django/devserver.log &
+        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intel_owl/django/api_app.log &
 
         # Tail ALL logs (including tee'd devserver)
-        tail -F /var/log/intelowl/**/*.log
+        tail -F /var/log/intel_owl/**/*.log
 
         # Django server keeps container alive (devcontainer happy)
         wait %1  # Wait specifically for Django PID
+
+  # Development daphne container
+  daphne:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        REACT_APP_INTELOWL_VERSION: v6.4.0
+    container_name: intelowl_daphne_dev
+    volumes:
+      - ..:/opt/deploy/intel_owl:cached
+      - generic_logs:/var/log/intel_owl
+      - shared_files:/opt/deploy/files_required
+    environment:
+      - DEBUG=True
+      - DJANGO_TEST_SERVER=True
+      - DJANGO_SECRET=ux)c0i8jp+nu(34c%y0q)rpv+-a%*hkrstmeg==xhe7v)fhe
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=intel_owl_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - BROKER_URL=redis://redis:6379/1
+      - WEBSOCKETS_URL=redis://redis:6379/0
+    ports:
+      - "8011:8011"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - intelowl-dev
+    command:
+      - sh
+      - -c
+      - |
+        cd /opt/deploy/intel_owl
+        daphne -b 0.0.0.0 -p 8011 intel_owl.asgi:application
 
   # Development celery worker
   celery_worker_default:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
+      args:
+        REACT_APP_INTELOWL_VERSION: v6.4.0
     container_name: intelowl_celery_worker_default_dev
     restart: "no"
     volumes:
-      - ..:/opt/deploy/intelowl:cached
-      - generic_logs:/var/log/intelowl
-      - mlmodels:/opt/deploy/intelowl/mlmodels
+      - ..:/opt/deploy/intel_owl:cached
+      - generic_logs:/var/log/intel_owl
+      - shared_files:/opt/deploy/files_required
     environment:
       - DEBUG=True
+      - DJANGO_SECRET=ux)c0i8jp+nu(34c%y0q)rpv+-a%*hkrstmeg==xhe7v)fhe
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=intelowl
-      - DB_USER=intelowl
-      - DB_PASSWORD=intelowl
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTIC_ENDPOINT=http://elasticsearch:9200
-      - ELASTICSEARCH_PORT=9200
-    working_dir: /opt/deploy/intelowl  # CRITICAL: Set cwd
+      - DB_NAME=intel_owl_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - BROKER_URL=redis://redis:6379/1
+      - WEBSOCKETS_URL=redis://redis:6379/0
+    working_dir: /opt/deploy/intel_owl
     healthcheck:
       disable: true
     ports:
@@ -164,54 +186,58 @@ services:
       - |
         # Celery with debugpy FOREGROUND → logs to file + stdout
         python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 \
-          --wait-for-client -m celery -A intelowl.celery worker \
+          --wait-for-client -m celery -A intel_owl.celery worker \
           -n worker_default -Q default -c 1 --pidfile= --pool=solo \
-          2>&1 | tee -a /var/log/intelowl/django/celery_worker_default.log &
+          2>&1 | tee -a /var/log/intel_owl/django/celery.log &
 
         # Tail ALL logs (including tee'd celery)
-        tail -F /var/log/intelowl/django/*.log
+        tail -F /var/log/intel_owl/django/*.log
 
         # Keep celery foreground PID alive (healthcheck happy)
         wait %1
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      elasticsearch:
+      redis:
         condition: service_healthy
     networks:
       - intelowl-dev
 
   # Development celery beat
   celery_beat:
-    extends:
-      file: ../docker/default.yml
-      service: celery_beat
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+      args:
+        REACT_APP_INTELOWL_VERSION: v6.4.0
     container_name: intelowl_celery_beat_dev
     volumes:
-      - ..:/opt/deploy/intelowl:cached
+      - ..:/opt/deploy/intel_owl:cached
+      - generic_logs:/var/log/intel_owl
+      - shared_files:/opt/deploy/files_required
     environment:
       - DEBUG=True
+      - DJANGO_SECRET=ux)c0i8jp+nu(34c%y0q)rpv+-a%*hkrstmeg==xhe7v)fhe
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_NAME=intelowl
-      - DB_USER=intelowl
-      - DB_PASSWORD=intelowl
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - ELASTICSEARCH_HOST=elasticsearch
-      - ELASTIC_ENDPOINT=http://elasticsearch:9200
-      - ELASTICSEARCH_PORT=9200
+      - DB_NAME=intel_owl_db
+      - DB_USER=user
+      - DB_PASSWORD=password
+      - BROKER_URL=redis://redis:6379/1
+      - WEBSOCKETS_URL=redis://redis:6379/0
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-      elasticsearch:
+      redis:
         condition: service_healthy
     networks:
       - intelowl-dev
+    command:
+      - sh
+      - -c
+      - |
+        cd /opt/deploy/intel_owl
+        celery -A intel_owl.celery beat
 
 networks:
   intelowl-dev:
@@ -223,4 +249,4 @@ volumes:
   nginx_logs:
   generic_logs:
   static_content:
-  mlmodels:
+  shared_files:

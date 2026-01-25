@@ -1,5 +1,8 @@
 {
     "name": "intelowl-dev",
+    "containerEnv": {
+        "REACT_APP_INTELOWL_VERSION": "v6.4.0"
+    },
     "dockerComposeFile": "docker-compose.yml",
     "service": "uwsgi",
     "workspaceFolder": "/opt/deploy/intel_owl",
@@ -14,7 +17,7 @@
         "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
         // "source=/tmp/cowrie_logs/,target=/tmp/cowrie_logs/,type=bind"
     ],
-    "postCreateCommand": "python manage.py makemigrations durin && python manage.py migrate",
+    "postCreateCommand": "python manage.py makemigrations durin && python manage.py makemigrations rest_email_auth && python manage.py createcachetable && python manage.py migrate --fake-initial && python manage.py collectstatic --noinput",
     "customizations": {
         "vscode": {
             "extensions": [
@@ -43,7 +46,14 @@
             }
         }
     },
-    "forwardPorts": [8000, 8001, 5678, 5679, 9200],
+    "forwardPorts": [
+        8000,
+        8001,
+        8011,
+        5678,
+        5679,
+        9200
+    ],
     "portsAttributes": {
         "8001": {
             "label": "Django",
@@ -61,10 +71,14 @@
             "label": "Celery Debugger",
             "onAutoForward": "notify"
         },
+        "8011": {
+            "label": "Daphne WebSocket",
+            "onAutoForward": "notify"
+        },
         "9200": {
             "label": "Elasticsearch",
             "onAutoForward": "notify"
         }
     },
-    "remoteUser": "root"
+    "remoteUser": "www-data"
 }
