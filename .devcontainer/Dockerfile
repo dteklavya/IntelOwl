@@ -27,6 +27,7 @@ RUN mkdir -p /home/www-data \
     && echo 'www-data:x:2000:65533::/home/www-data:/bin/sh' >> /etc/passwd
 
 # Switch back to www-data user
+ENV HOME=/home/www-data
 USER www-data
 
 # Expose debugging port
