@@ -15,6 +15,7 @@
     },
     "mounts": [
         "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
+        "source=${localEnv:HOME}/.gitconfig,target=/home/www-data/.gitconfig,type=bind,consistency=cached,readonly"
         // "source=/tmp/cowrie_logs/,target=/tmp/cowrie_logs/,type=bind"
     ],
     "postCreateCommand": "python manage.py makemigrations durin && python manage.py makemigrations rest_email_auth && python manage.py createcachetable && python manage.py migrate --fake-initial && python manage.py collectstatic --noinput",
