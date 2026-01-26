@@ -1,0 +1,14 @@
+name: intelowl-dev
+# Extend the repo's default configuration
+services:
+  init-logs:
+    image: intelowlproject/intelowl:stag
+    user: root
+    volumes:
+      - generic_logs:/var/log/intel_owl
+    command: >
+      sh -c "
+        chown -R 33:33 /var/log/intel_owl /opt/deploy/
+      "
+volumes:
+  generic_logs:
