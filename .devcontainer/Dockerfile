@@ -1,5 +1,5 @@
 # Use production image as base to avoid duplication
-ARG REACT_APP_INTELOWL_VERSION=v6.4.0
+ARG REACT_APP_INTELOWL_VERSION=stag
 FROM intelowlproject/intelowl:${REACT_APP_INTELOWL_VERSION}
 
 # Switch to root to install development tools
@@ -26,11 +26,12 @@ RUN apt-get update && \
 RUN pip3 install --no-cache-dir debugpy
 
 # Fix www-data user for DevContainer compatibility
-# Production image creates www-data with UID 2000, GID 65533, no home directory
-# VS Code needs to remap to 1000:1000, so we need to create a proper home directory
-RUN mkdir -p /home/www-data \
-    && chown 2000:65533 /home/www-data \
-    && echo 'www-data:x:2000:65533::/home/www-data:/bin/sh' >> /etc/passwd
+# Production image creates www-data with UID 33, GID 33
+# VS Code remaps to 1000:1000, so we need to update the UID/GID
+RUN groupadd -g 988 docker && \
+    usermod -aG docker www-data && \
+    mkdir -p /home/www-data && \
+    chown -R 1000:1000 /home/www-data /var/log/intel_owl /opt/deploy/
 
 # Switch back to www-data user
 ENV HOME=/home/www-data
