@@ -28,14 +28,12 @@ RUN pip3 install --no-cache-dir debugpy
 # Fix www-data user for DevContainer compatibility
 # Production image creates www-data with UID 33, GID 33
 # VS Code remaps to 1000:1000, so we need to update the UID/GID
-RUN groupadd -g 988 docker && \
-    usermod -aG docker www-data && \
-    mkdir -p /home/www-data && \
-    chown -R 1000:1000 /home/www-data /var/log/intel_owl /opt/deploy/
+# RUN mkdir -p /home/www-data && \
+#     chown -R 1000:1000 /home/www-data /var/log/intel_owl /opt/deploy/
 
-# Switch back to www-data user
-ENV HOME=/home/www-data
-USER www-data
+# # Switch back to www-data user
+ENV HOME=/root
+# USER www-data
 
 # Expose debugging port
 EXPOSE 5678

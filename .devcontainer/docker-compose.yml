@@ -1,3 +1,7 @@
+x-no-healthcheck: &no-healthcheck
+  healthcheck:
+    disable: true
+
 name: intelowl-dev
 # Extend the repo's default configuration
 services:
@@ -211,7 +215,9 @@ services:
       args:
         REACT_APP_INTELOWL_VERSION: stag
     container_name: intelowl_celery_beat_dev
+    restart: unless-stopped
     volumes:
+      - ../configuration:/opt/deploy/intel_owl/configuration
       - ..:/opt/deploy/intel_owl:cached
       - generic_logs:/var/log/intel_owl
       - shared_files:/opt/deploy/files_required
@@ -225,6 +231,11 @@ services:
       - DB_PASSWORD=password
       - BROKER_URL=redis://redis:6379/1
       - WEBSOCKETS_URL=redis://redis:6379/0
+    entrypoint:
+      - ./docker/entrypoints/celery_beat.sh
+    env_file:
+      - ../docker/env_file_app
+    <<: *no-healthcheck
     depends_on:
       postgres:
         condition: service_healthy
@@ -232,12 +243,6 @@ services:
         condition: service_healthy
     networks:
       - intelowl-dev
-    command:
-      - sh
-      - -c
-      - |
-        cd /opt/deploy/intel_owl
-        celery -A intel_owl.celery beat
 
 networks:
   intelowl-dev:
