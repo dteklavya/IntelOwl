@@ -109,10 +109,11 @@ services:
       - -c
       - |
         # Terminal multiplex: Django foreground + tail logs in background
-        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intel_owl/django/api_app.log &
+        cd /opt/deploy/intel_owl &&
+        python -m ptvsd --host 0.0.0.0 --port 5678 --wait manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intel_owl/django/api_app.log &
 
         # Tail ALL logs (including tee'd devserver)
-        tail -F /var/log/intel_owl/**/*.log
+        tail -f /var/log/intel_owl/django/api_app.log
 
         # Django server keeps container alive (devcontainer happy)
         wait %1  # Wait specifically for Django PID
@@ -188,11 +189,10 @@ services:
       - sh
       - -c
       - |
-        # Celery with debugpy FOREGROUND → logs to file + stdout
-        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 \
-          --wait-for-client -m celery -A intel_owl.celery worker \
-          -n worker_default --uid www-data --gid www-data -Q default -c 1 --pidfile= --pool=solo \
-          2>&1 | tee -a /var/log/intel_owl/django/celery.log &
+        python -m ptvsd --host 0.0.0.0 --port 5678 --wait \
+        -m celery -A intel_owl.celery worker \
+        -n worker_default --uid www-data --gid www-data -Q default -c 1 --pidfile= --pool=solo \
+        2>&1 | tee -a /var/log/intel_owl/django/celery.log &
 
         # Tail ALL logs (including tee'd celery)
         tail -F /var/log/intel_owl/django/*.log
@@ -246,6 +246,7 @@ services:
 
 networks:
   intelowl-dev:
+    name: intelowl-dev
     driver: bridge
 
 volumes:

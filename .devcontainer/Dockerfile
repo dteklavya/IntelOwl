@@ -8,7 +8,6 @@ USER root
 # Install git + essentials
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-    # FIXME: install docker-buildx-plugin
     git curl wget gnupg ca-certificates lsb-release && \
     install -m 0755 -d /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
@@ -16,14 +15,14 @@ RUN apt-get update && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian bookworm stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt-get update && \
     apt-get install -y --no-install-recommends docker-ce-cli && \
-    curl -fsSL https://opencode.ai/install | bash && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/* /tmp/* /var/tmp/* /etc/apt/keyrings/docker.gpg
 
 
 
 # Install debugpy for development debugging
-RUN pip3 install --no-cache-dir debugpy
+# RUN pip3 install --no-cache-dir debugpy
+RUN pip3 install --no-cache-dir ptvsd
 
 # Fix www-data user for DevContainer compatibility
 # Production image creates www-data with UID 33, GID 33
