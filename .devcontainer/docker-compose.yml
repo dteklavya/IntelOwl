@@ -110,7 +110,7 @@ services:
       - |
         # Terminal multiplex: Django foreground + tail logs in background
         cd /opt/deploy/intel_owl &&
-        python -m ptvsd --host 0.0.0.0 --port 5678 --wait manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intel_owl/django/api_app.log &
+        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 --wait-for-client manage.py runserver 0.0.0.0:8001 2>&1 | tee -a /var/log/intel_owl/django/api_app.log &
 
         # Tail ALL logs (including tee'd devserver)
         tail -f /var/log/intel_owl/django/api_app.log
@@ -189,7 +189,7 @@ services:
       - sh
       - -c
       - |
-        python -m ptvsd --host 0.0.0.0 --port 5678 --wait \
+        python -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 \
         -m celery -A intel_owl.celery worker \
         -n worker_default --uid www-data --gid www-data -Q default -c 1 --pidfile= --pool=solo \
         2>&1 | tee -a /var/log/intel_owl/django/celery.log &

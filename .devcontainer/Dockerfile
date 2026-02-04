@@ -21,8 +21,10 @@ RUN apt-get update && \
 
 
 # Install debugpy for development debugging
-# RUN pip3 install --no-cache-dir debugpy
-RUN pip3 install --no-cache-dir ptvsd
+RUN pip3 install --no-cache-dir debugpy
+# Fixes typing/dataclasses errors for debugpy
+RUN pip uninstall -y dataclasses
+# RUN pip3 install --no-cache-dir ptvsd
 
 # Fix www-data user for DevContainer compatibility
 # Production image creates www-data with UID 33, GID 33
